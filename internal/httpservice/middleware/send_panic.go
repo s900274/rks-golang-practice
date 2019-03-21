@@ -3,8 +3,8 @@ package middleware
 import (
     "fmt"
     "github.com/gin-gonic/gin"
-    "gitlab.kingbay-tech.com/engine-lottery/magneto/internal/define"
-    "gitlab.kingbay-tech.com/engine-lottery/magneto/pkg/helpers/utils"
+    "rks-golang-practice/internal/define"
+    "rks-golang-practice/pkg/helpers/utils"
     logger "github.com/shengkehua/xlog4go"
 )
 

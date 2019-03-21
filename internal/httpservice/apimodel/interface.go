@@ -1,32 +1,32 @@
 package apimodel
 
 import (
-    "gitlab.kingbay-tech.com/engine-lottery/magneto/internal/define"
-    "gitlab.kingbay-tech.com/engine-lottery/magneto/pkg/helpers/common"
+    "fmt"
+    "rks-golang-practice/internal/define"
 )
 
-func WSRespFmt(data interface{}, code int32, msg string, uuid string, event string, broadcastType int) string {
-    resp := &WSResponse{}
+func ApiRespFmt(data interface{}, code int32, msg string) *Response {
+    resp := &Response{}
     if len(msg) == 0{
         msg = define.ErrMsgMap[code]
     }
     resp.Message = msg
     resp.Code = code
     resp.Data = data
-    resp.UUId = uuid
-    resp.Event = event
-    resp.BroadcastType = broadcastType
-    s , _ :=common.Struct2Json(resp)
-    return s
+    return resp
 }
 
-type WSResponse struct {
-    Code int32 `json:"code"`
-    Data interface{} `json:"data"`
-    Message string `json:"message"`
-    UUId string `json:"UUId"`
-    // 顯示在前端的樣式
-    Display int64 `json:"display"`
-    Event string `json:"event"`
-    BroadcastType int `json:"broadcastType"`
+type Response struct {
+    Code int32
+    Message string
+    Data interface{}
+}
+
+func RespParamsError(err error) *Response {
+    msg := fmt.Sprintf("%s|%s", define.ErrMsgMap[define.ERR_PARAMS_ERROR], err.Error())
+    return ApiRespFmt(
+        nil,
+        define.ERR_PARAMS_ERROR,
+        msg,
+    )
 }

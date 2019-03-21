@@ -1,7 +1,7 @@
 *.iml
 .DS_Store
 .idea/*
-bin/magneto
+init/rks-golang-practice
 log
 vendor/*
 !vendor/vendor.json

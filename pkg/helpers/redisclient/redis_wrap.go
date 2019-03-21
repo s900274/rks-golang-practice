@@ -5,9 +5,9 @@ package redisclient
 
 import (
 	"fmt"
-	"gitlab.kingbay-tech.com/engine-lottery/magneto/pkg/helpers/utils"
+	"rks-golang-practice/pkg/helpers/utils"
 	"time"
-	"gitlab.kingbay-tech.com/engine-lottery/magneto/pkg/redigo/redis"
+	"rks-golang-practice/pkg/redigo/redis"
 	logger "github.com/shengkehua/xlog4go"
 	"errors"
     "strconv"

@@ -1,18 +1,16 @@
-GOPATH:=$(CURDIR)/../../../../
-export GOPATH
-
+export GO111MODULE=on
 export CGO_ENABLED=0
 
 all: bld
 
-bld: magneto
+bld: rks-golang-practice
 
-magneto:
-	govendor sync
-	go build -o bin/magneto gitlab.kingbay-tech.com/engine-lottery/magneto/cmd/magneto
+rks-golang-practice:
+	go mod download
+	go build -o init/rks-golang-practice ./cmd/rks-golang-practice
 
 clean:
-	@rm -f init/magneto
+	@rm -f init/rks-golang-practice
 	@rm -rf status
 	@rm -f  log/*log*
 	@rm -rf ./output
