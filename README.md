@@ -2,27 +2,22 @@
 
 ## Requirements
 
-Go Version : >= 1.5
+Go Version : >= 1.11
 
-Govendor : https://github.com/kardianos/govendor (Follow the installation guide)
+Support GO module
 
 ## Get started
 
-1. Clone the repository from the Gitlab to your GOPATH ($GOPAHT/src/gitlab.kingbay-tech.com/engine-lottery/)
+1. Clone the repository from the Github
 
 2. Move to the repository folder
 
 3. Execute
 ```
- $ ./scripts/initialization_project.sh <Your_Project_Name>
+ $ make
 ```
 
-4. Execute govendor sync
-```
-$ govendor sync
-```
-
-5. Generate swagger files
+4. Generate swagger files
 ```
 $ cd internal/httpservice
 ```
@@ -63,7 +58,5 @@ make, load, initial script
 
 ## Reference
 * [Golang Project Layout](https://github.com/golang-standards/project-layout)
-
-* [Govendor](https://github.com/kardianos/govendor)
 
 * [Gin with Swagger](https://github.com/swaggo/gin-swagger)
