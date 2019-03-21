@@ -1,0 +1,7 @@
+*.iml
+.DS_Store
+.idea/*
+bin/magneto
+log
+vendor/*
+!vendor/vendor.json

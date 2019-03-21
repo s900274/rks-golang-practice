@@ -1,0 +1,397 @@
+/*
+监控守护进程
+
+20160606
+@aosen
+*/
+package monitor
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"reflect"
+	"sync"
+	"time"
+)
+
+func InitMonitor() {
+	initMonitor()
+}
+
+const (
+	ADD = 0
+	MAX = 1
+)
+
+const (
+	//时间周期
+	CYCLE = 3 * time.Second
+)
+
+var mr *Monitor
+
+//服务给monitor传输的数据
+type Msg struct {
+	src   interface{}
+	mtype int
+	key   string
+	value int64
+}
+
+//每次reset前将infodata=sumdata
+type Monitor struct {
+	//给info接口提供的数据
+	InfoData *Data
+	//用于累加
+	SumData *Data
+	//用于异步数据通信
+	queue chan *Msg
+	//读写锁
+	mlocker *sync.RWMutex
+}
+
+func copyValue(src interface{}, dest interface{}) {
+	src_value := reflect.ValueOf(src).Elem()
+	dest_value := reflect.ValueOf(dest).Elem()
+	if reflect.TypeOf(src) == reflect.TypeOf(dest) {
+		for i := 0; i < src_value.NumField(); i++ {
+			if dest_value.Field(i).CanSet() {
+				dest_value.Field(i).Set(src_value.Field(i))
+			}
+		}
+	}
+}
+
+func addValue(inter interface{}, key string, v int64) {
+	value := reflect.ValueOf(inter).Elem()
+	if value.FieldByName(key).IsValid() {
+		if value.FieldByName(key).CanSet() {
+			if value.FieldByName(key).Kind() == reflect.Int64 {
+				oldv := value.FieldByName(key).Int()
+				value.FieldByName(key).Set(reflect.ValueOf(oldv + v))
+			}
+		}
+	}
+}
+
+func getValue(inter interface{}, key string) interface{} {
+	value := reflect.ValueOf(inter).Elem()
+	if value.FieldByName(key).IsValid() {
+		if value.FieldByName(key).CanSet() {
+			return value.FieldByName(key).Interface()
+		}
+	}
+	return nil
+}
+
+//ture 赋值成功， false 赋值失败
+func setValue(inter interface{}, key string, v interface{}) bool {
+	value := reflect.ValueOf(inter).Elem()
+	if value.FieldByName(key).IsValid() {
+		if value.FieldByName(key).CanSet() {
+			if value.FieldByName(key).Type() == reflect.TypeOf(v) {
+				value.FieldByName(key).Set(reflect.ValueOf(v))
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func less(inter interface{}, key string, v int64) bool {
+	value := reflect.ValueOf(inter).Elem()
+	if value.FieldByName(key).IsValid() {
+		if value.FieldByName(key).Kind() == reflect.Int64 {
+			oldv := value.FieldByName(key).Int()
+			if oldv < v {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func addMaxValue(inter interface{}, key string, v int64) {
+	if less(inter, key, v) {
+		setValue(inter, key, v)
+	}
+}
+
+func initData(d *Data) {
+	count := Count{}
+	timeused := TimeUsed{}
+	resource := Resource{}
+	err := Error{}
+	d.Count[0] = count
+	d.Timeused[0] = timeused
+	d.Resource[0] = resource
+	d.Err[0] = err
+}
+
+//初始化监控
+func initMonitor() {
+	infodata := &Data{make([]Count, 1), make([]TimeUsed, 1), make([]Resource, 1), make([]Error, 1)}
+	sumdata := &Data{make([]Count, 1), make([]TimeUsed, 1), make([]Resource, 1), make([]Error, 1)}
+	//初始化，全置0
+	initData(infodata)
+	initData(sumdata)
+	mr = &Monitor{
+		InfoData: infodata,
+		SumData:  sumdata,
+		queue:    make(chan *Msg, 10000000),
+		mlocker:  new(sync.RWMutex),
+	}
+	go mr.run()
+}
+
+func (self *Monitor) rest() {
+	initData(self.SumData)
+}
+
+func (self *Monitor) copydata() {
+	var (
+		count    int64
+		cost     int64
+		errcount int64
+	)
+	copyValue(&self.SumData.Count[0], &self.InfoData.Count[0])
+	copyValue(&self.SumData.Timeused[0], &self.InfoData.Timeused[0])
+	copyValue(&self.SumData.Err[0], &self.InfoData.Err[0])
+	infotuv := reflect.ValueOf(&self.InfoData.Timeused[0]).Elem()
+	infocountv := reflect.ValueOf(&self.InfoData.Count[0]).Elem()
+	infoerrv := reflect.ValueOf(&self.InfoData.Err[0]).Elem()
+	//求平均值
+	tuv := reflect.ValueOf(&self.SumData.Timeused[0]).Elem()
+	tut := reflect.TypeOf(self.SumData.Timeused[0])
+	countt := reflect.TypeOf(self.SumData.Count[0])
+	countv := reflect.ValueOf(&self.SumData.Count[0]).Elem()
+	errt := reflect.TypeOf(self.SumData.Err[0])
+	errv := reflect.ValueOf(&self.SumData.Err[0]).Elem()
+	for i := 0; i < tuv.NumField(); i++ {
+		count = 0
+		if tuv.Field(i).CanSet() {
+			if tut.Field(i).Tag.Get("type") == "avg" {
+				//获取key的名字
+				name := tut.Field(i).Name
+				//tuv.Field(i).Set(reflect.ValueOf(v))
+				//获取值
+				if countv.FieldByName(name).IsValid() {
+					if countv.FieldByName(name).Kind() == reflect.Int64 {
+						count = countv.FieldByName(name).Int()
+					}
+				}
+				//获取timeused的值
+				if tuv.Field(i).IsValid() {
+					if tuv.Field(i).Kind() == reflect.Int64 {
+						cost = tuv.Field(i).Int()
+					}
+				}
+				//附平均值
+				if count != int64(0) {
+					infotuv.Field(i).Set(reflect.ValueOf(cost / count))
+				}
+			}
+		}
+	}
+	//算qps
+	for i := 0; i < countv.NumField(); i++ {
+		count = 0
+		if countv.Field(i).CanSet() {
+			if countt.Field(i).Tag.Get("type") == "qps" {
+				//获取count
+				if countv.Field(i).IsValid() {
+					if countv.Field(i).Kind() == reflect.Int64 {
+						count = countv.Field(i).Int()
+					}
+				}
+				//附qps
+				infocountv.Field(i).Set(reflect.ValueOf(count / (int64(CYCLE) / int64(1000000000))))
+			}
+		}
+	}
+
+	//算err qps
+	for i := 0; i < errv.NumField(); i++ {
+		errcount = 0
+		if errv.Field(i).CanSet() {
+			if errt.Field(i).Tag.Get("type") == "qps" {
+				//获取count
+				if errv.Field(i).IsValid() {
+					if errv.Field(i).Kind() == reflect.Int64 {
+						errcount = countv.Field(i).Int()
+					}
+				}
+				//附qps
+				infoerrv.Field(i).Set(reflect.ValueOf(errcount / (int64(CYCLE) / int64(1000000000))))
+			}
+		}
+	}
+}
+
+func (self *Monitor) run() {
+	defer func() {
+		fmt.Errorf("msg=[monitor run panic]\n")
+		if err := recover(); err != nil {
+			fmt.Errorf("msg=[maybach monitor panic in run] detail=[%v]\n", err)
+		}
+	}()
+	//每30秒重置一次
+	go func() {
+		for {
+			time.Sleep(CYCLE)
+			start := time.Now().UnixNano()
+			mr.mlocker.Lock()
+			//记录chan大小
+			setValue(&mr.SumData.Count[0], "MonitorChanSize", len(mr.queue))
+			//在copy数据之前获取写cpu和mem数据
+			mr.copydata()
+			mr.rest()
+			mr.mlocker.Unlock()
+			end := time.Now().UnixNano()
+			cost := (end - start)/1000000
+			log.Printf("msg=[maybach monitor copy] timeused=[%v]\n", cost)
+		}
+	}()
+	for {
+		msg := <-mr.queue
+		mr.mlocker.Lock()
+		switch msg.mtype {
+		case ADD:
+			addValue(msg.src, msg.key, msg.value)
+		case MAX:
+			addMaxValue(msg.src, msg.key, msg.value)
+		}
+		mr.mlocker.Unlock()
+	}
+}
+
+func Get() string {
+	mr.mlocker.RLock()
+	jsonv, _ := json.Marshal(mr.InfoData)
+	mr.mlocker.RUnlock()
+	return string(jsonv)
+}
+
+//+1 计数  增加某个key的计数
+func AddCount(key string) {
+	select {
+	case mr.queue <- &Msg{&mr.SumData.Count[0], ADD, key, int64(1)}:
+	default:
+		log.Println("msg=[AddCount fail] detail=[queue full]")
+	}
+}
+
+//添加耗时
+func AddTimeUsed(key string, value int64) {
+	select {
+	case mr.queue <- &Msg{&mr.SumData.Timeused[0], ADD, key, value}:
+	default:
+		log.Println("msg=[AddCount fail] detail=[queue full]")
+	}
+}
+
+//添加最大耗时
+func AddMaxTimeUsed(key string, value int64) {
+	select {
+	case mr.queue <- &Msg{&mr.SumData.Timeused[0], MAX, key, value}:
+	default:
+		log.Println("msg=[AddCount fail] detail=[queue full]")
+	}
+}
+
+//添加错误计数 +1
+func AddError(key string) {
+	select {
+	case mr.queue <- &Msg{&mr.SumData.Err[0], ADD, key, int64(1)}:
+	default:
+		log.Println("msg=[AddError fail] detail=[queue full]")
+	}
+}
+
+//添加多个计数 +n
+func AddCountMulti(key string, v int64) {
+	select {
+	case mr.queue <- &Msg{&mr.SumData.Count[0], ADD, key, int64(v)}:
+	default:
+		log.Println("msg=[AddCountMulti fail] detail=[queue full]")
+	}
+}
+
+//添加多个错误计数 +n
+func AddErrorMulti(key string, v int64) {
+	select {
+	case mr.queue <- &Msg{&mr.SumData.Err[0], ADD, key, int64(v)}:
+	default:
+		log.Println("msg=[AddErrorMulti fail] detail=[queue full]")
+	}
+}
+
+//添加总计数及错误计数
+func AddCountAndErrCnt(key string, errKey string, allCount int, rightCount int) {
+	if allCount <= 0 {
+		return
+	}
+	AddCountMulti(key, int64(allCount))
+
+	if rightCount >= allCount {
+		return
+	}
+	AddErrorMulti(errKey, int64(allCount-rightCount))
+}
+
+//直接赋值，不累加 true 赋值成功， false 赋值失败
+func SetCount(key string, v interface{}) bool {
+	mr.mlocker.Lock()
+	ok1 := setValue(&mr.InfoData.Count[0], key, v)
+	ok2 := setValue(&mr.SumData.Count[0], key, v)
+	mr.mlocker.Unlock()
+	if ok1 && ok2 {
+		return true
+	}
+	return false
+}
+
+//直接赋值，不累加 true 赋值成功， false 赋值失败
+func SetResourceCount(key string, v interface{}) bool {
+	mr.mlocker.Lock()
+	ok1 := setValue(&mr.InfoData.Resource[0], key, v)
+	ok2 := setValue(&mr.SumData.Resource[0], key, v)
+	mr.mlocker.Unlock()
+	if ok1 && ok2 {
+		return true
+	}
+	return false
+}
+
+//直接赋值，不累加 true 赋值成功， false 赋值失败
+func SetTimeUsed(key string, v interface{}) bool {
+	mr.mlocker.Lock()
+	ok1 := setValue(&mr.InfoData.Timeused[0], key, v)
+	ok2 := setValue(&mr.SumData.Timeused[0], key, v)
+	mr.mlocker.Unlock()
+	if ok1 && ok2 {
+		return true
+	}
+	return false
+}
+
+//直接赋值，不累加 true 赋值成功， false 赋值失败
+func SetErrCount(key string, v interface{}) bool {
+	mr.mlocker.Lock()
+	ok1 := setValue(&mr.InfoData.Err[0], key, v)
+	ok2 := setValue(&mr.SumData.Err[0], key, v)
+	mr.mlocker.Unlock()
+	if ok1 && ok2 {
+		return true
+	}
+	return false
+}
+
+//获取数据
+func GetCount(key string) interface{} {
+	mr.mlocker.RLock()
+	ret := getValue(&mr.InfoData.Count[0], key)
+	mr.mlocker.RUnlock()
+	return ret
+}

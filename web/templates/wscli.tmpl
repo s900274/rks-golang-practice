@@ -1,0 +1,191 @@
+<html>
+<head>
+    <title>Socket.IO chat</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font: 18px Helvetica, Arial; }
+        form { background: #000; padding: 3px; position: fixed; bottom: 0; width: 100%;}
+        form input { border: 0; padding: 10px; width: 79%; margin-right: .5%; margin-left: .5%; }
+        form button { width: 14%; background: rgb(130, 224, 255); border: none; padding: 10px; }
+        #leave-btn { width: 6%; background: rgb(130, 224, 255); border: none; padding: 10px; }
+
+        li { width: 100%; display:inline-block; }
+        #messages { list-style-type: none; padding-bottom: 100px; }
+        .others { padding: 5px 5px; background: #e0e0e0; text-align: left; float:left; border-radius: 5px; margin-left: 20px; margin-top: 10px;}
+        .others-time { padding: 5px 10px; color: #adadad; text-align: left; float:left; border-radius: 5px; margin-left: 20px; margin-bottom: 5px; font: 10px Helvetica, Arial;}
+
+        .mine { padding: 5px 10px; background: #03cc00; text-align: right; float:right; border-radius: 5px; margin-right: 20px; margin-top: 10px; }
+        .mine-time { padding: 5px 10px; color: #adadad; text-align: right; float:right; border-radius: 5px; margin-right: 20px; margin-bottom: 5px; font: 10px Helvetica, Arial;}
+
+        #profile button { width: 100px; background: rgb(130, 224, 255); border-radius: 5px; border: none; padding: 10px; font: 18px Helvetica, Arial; }
+        #profile input { padding: 10px; width: 250px; margin-right: .5%; font: 18px Helvetica, Arial; }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.css" />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.7/socket.io.min.js"></script>
+    <!-- Remember to include jQuery :) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.0.0/jquery.min.js"></script>
+
+    <!-- jQuery Modal -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.js"></script>
+    <script>
+
+        $( document ).ready(function() {
+                $('#m').keydown(function(event){
+                    if( event.which == 13 ) {
+                        $('#msg-btn').click()
+                    }
+                });
+        });
+
+    </script>
+</head>
+<body>
+<ul id="messages"></ul>
+<form action="" onsubmit='return false'>
+    <input id="m" autocomplete="off"/><br/>
+    <button id="leave-btn">Leave</button>
+    <button id="msg-btn">Send Msg</button>
+    <button id="start-cf-btn">bet order</button>
+</form>
+
+<div id="profile" class="modal">
+    <span>who r u?</span>
+    <input id="username" autocomplete="off" />
+    <button>Send</button>
+</div>
+
+<script>
+    function getParameterByName(name, url) {
+        if (!url) url = window.location.href;
+        name = name.replace(/[\[\]]/g, '\\$&');
+        var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+            results = regex.exec(url);
+        if (!results) return null;
+        if (!results[2]) return '';
+        return decodeURIComponent(results[2].replace(/\+/g, ' '));
+    }
+
+    var username = '';
+    var roomId = '';
+    var randomId = "unique_user_id_"+username+"_"+Math.floor((Math.random() * 1000) + 1);
+    var socket;
+
+    var wshost = getParameterByName('wshost');
+    if (!wshost){
+        wshost = ':' + {{.port}}
+    }
+    var source = getParameterByName('source')
+    if (!source){
+        source = "H5"
+    }
+
+
+    username = $('#username').val();
+    randomId = randomId + username;
+
+    $('#profile').hide();
+    $('.jquery-modal').hide();
+
+    socket = io(wshost, {
+        path: '/magneto/v1/socket.io',
+        transports: ['websocket'],
+        query: {
+            userAccount: "jimchung",
+            origin: encodeURI("http://blc.testoce.cp.baochi888.com"),
+            userToken: "bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1NDg3MjkzODYsInVzZXJfbmFtZSI6ImJsY3xqaW1jaHVuZ3wyNTEyIiwiYXV0aG9yaXRpZXMiOlsiUk9MRV9VU0VSIl0sImp0aSI6Ijc3NTVjZWRlLTAxZTYtNDFjMy05MTJhLTkyYzEzYjcyZTJhNyIsImNsaWVudF9pZCI6IndlYl9hcHAiLCJzY29wZSI6WyJvcGVuaWQiXX0.FBhjBW0P9T9SwplyHRI9KWaSDnJ2qsjOkqNMWt3dlEIApUR9c7UwYVVONrKkMT0EbU-2SiNZmm1mfsesvQz9kE5qBySR7NA4FIllkk28Pkz7_xemdcGkIE2XhtA_HMlTtheFlmAi6deMOvKLYUSuHohGZJYUA8JB56ffGQnnxOQFDIp7NXvYO-BG9s1biYugIM950kfQ6GWLU1iTMfgSXkIRIVhS8ac2AjsJ5wLhYlg-1DY5TwwO4x_P9y9zq3VyTO7aBa25SUJE3h0y78W0f2KyE8Uqjm5ZnYt8GtMuL2OGnDtICtJCuMp0vvmHBYSzARzD3cW5cLo6t1KUCGdsTA",
+            from: "FRONT",
+            source: source,
+        }
+    });
+
+    socket.on('bet order', function(msg){
+        var revObj = JSON.parse(msg);
+        console.log(revObj);
+
+        var currentdate = new Date();
+        var time = currentdate.getHours() + ":" + ((currentdate.getMinutes() < 10)?"0":"") + currentdate.getMinutes();
+
+        if (nowMessage == revObj.UUId) {
+            $('#messages').append('<li>').append($('<span class="mine">').text("I began the bet order"));
+            $('#messages').append('<li>').append($('<span class="mine-time">').text(time));
+        } else {
+            $('#messages').append('<li>').append($('<span class="others">').text("I got the bet order"));
+            $('#messages').append('<li>').append($('<span class="others">').text(msg));
+            $('#messages').append('<li>').append($('<span class="others-time">').text(time+"("+revObj.userToken+")"));
+        }
+
+        $('html,body').scrollTop(100000000000000000);
+        nowMessage = '';
+    });
+
+    socket.on('chat message', function(msg){
+        console.log(msg);
+        var revObj = JSON.parse(msg);
+
+        var currentdate = new Date();
+        var time = currentdate.getHours() + ":" + ((currentdate.getMinutes() < 10)?"0":"") + currentdate.getMinutes();
+        console.log(nowMessage + " " + revObj.UUId)
+        if (nowMessage == revObj.UUId) {
+            // $('#messages').append($('<li>').text('<span class="mine">'+msg+'</span>'));
+            $('#messages').append('<li>').append($('<span class="mine">').text(revObj.data.msg));
+            $('#messages').append('<li>').append($('<span class="mine-time">').text(time));
+        } else {
+            $('#messages').append('<li>').append($('<span class="others">').text(revObj.data.msg));
+            $('#messages').append('<li>').append($('<span class="others-time">').text(time+"("+revObj.data.userAccount+")"));
+        }
+
+        $('html,body').scrollTop(100000000000000000);
+        //nowMessage = '';
+    });
+
+     socket.on('user speak', function(msg){
+                console.log(msg);
+      });
+
+
+    var nowMessage = '';
+    $('#msg-btn').click(function() {
+        var msgObj = {
+            "msg": $('#m').val(),
+            "uuid": randomId,
+            "type": "message"
+        };
+        if ($('#m').val() == '') {
+            return false;
+        }
+        socket.emit('chat message', JSON.stringify(msgObj));
+        nowMessage = randomId;
+        $('#m').val('');
+        return false;
+    });
+
+    $('#leave-btn').click(function() {
+        var msgObj = {
+            "msg": "",
+            "uuid": randomId,
+            "type": "leave",
+        };
+        console.log(msgObj);
+        socket.emit('chat message', JSON.stringify(msgObj));
+    });
+
+    $('#start-cf-btn').click(function() {
+        var msgObj = {"data":{
+                "betDataList":[{"playId":21103,"name":"单","payoffFormat":"1.000","playName":"第一球","amount":0},{"playId":21101,"name":"大","payoffFormat":"1.000","playName":"第一球","amount":0}],"savedBetData":{"list":[{"betContent":"单","betMode":0,"chaseCount":1,"ifChase":0,"moneyMode":"y","remark":"无","betAmount":100,"betCount":1,"playId":21103,"multiple":1},{"betContent":"大","betMode":0,"chaseCount":1,"ifChase":0,"moneyMode":"y","remark":"无","betAmount":100,"betCount":1,"playId":21101,"multiple":1}],"amount":200,"lotteryId":2,"operType":0,"pcode":20190121065,"pdate":20190121,"remark":"无","source":"h5","sourceType":"2"}},"uuid":"bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1NDgxMzM4MjIsInVzZXJfbmFtZSI6ImJsY3xqYWNreTF8MjkzOSIsImF1dGhvcml0aWVzIjpbIlJPTEVfVVNFUiJdLCJqdGkiOiIyZTFhZDg4My0wNGNlLTQxODUtOGE5My0xODA4NWY0ZDcxODciLCJjbGllbnRfaWQiOiJ3ZWJfYXBwIiwic2NvcGUiOlsib3BlbmlkIl19.fB9KfJ4sBH9u0kDYXNcP4FSi2dElt5zcFo_-VXuY6WkrdOlS2hgNma1pwqXO6JoXkM3NmeSl-GjPha6kQSbWn4z4OxRlGqpl0C2YBQkPpbRgmJIpl45qsRToWITvuSIXrs0G0MglZjbiWQa9Z38KqSVid8KLck0awgR8wqeRxLABgyC70ARjPNzqyK3DkSfX-5795do3Gc6zL7JGuVjH1SnlqE1JqRTCmUNx-9KUsOGexy8dLckUec_xGN300wq4BxTAt5ITiocmT9r2kL3EOnK6b-aw_VTypBdT25iqHKjD3GQlWwYa5m-9cgUAS_KnaXlBP4m0XZdwULTt7cAuuQ",
+
+                "type":"bet order"
+            }
+
+
+        console.log("bet order")
+        socket.emit('bet order', JSON.stringify(msgObj));
+        nowMessage = randomId;
+        $('#m').val('');
+        return false;
+    });
+
+</script>
+
+</body>
+</html>

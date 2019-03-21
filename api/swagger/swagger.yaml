@@ -1,0 +1,101 @@
+basePath: /
+definitions:
+  apimodel.ExamplePost:
+    properties:
+      name:
+        example: jim
+        type: string
+      old:
+        example: 30
+        type: integer
+    required:
+    - name
+    type: object
+  apimodel.Response:
+    properties:
+      code:
+        type: integer
+      data:
+        type: object
+      message:
+        type: string
+    type: object
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: This is a sample server Petstore server.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Swagger test_swag API
+  version: "1.0"
+paths:
+  /v1/example/testget/{name}:
+    get:
+      consumes:
+      - application/json
+      description: 用GET method 測試api
+      parameters:
+      - description: token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - default: Jim
+        description: 名字1
+        in: path
+        name: name
+        required: true
+        type: string
+      - default: 18
+        description: 年紀
+        in: query
+        name: old
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ok
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/apimodel.Response'
+            type: object
+      summary: 用GET method 測試api
+      tags:
+      - EX1
+  /v1/example/testpost:
+    post:
+      consumes:
+      - application/json
+      description: 用POST method 測試api
+      parameters:
+      - description: body
+        in: body
+        name: sendBody
+        required: true
+        schema:
+          $ref: '#/definitions/apimodel.ExamplePost'
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ok
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/apimodel.Response'
+            type: object
+      summary: 用POST method 測試api
+      tags:
+      - EX2
+swagger: "2.0"

@@ -1,0 +1,21 @@
+{
+    "LogLevel" : "trace",
+
+    "FileWriter" : {
+        "On": true,
+
+        "LogPath" : "./log/magneto.log.info",
+        "RotateLogPath" : "./log/magneto.log.info.%Y%M%D",
+
+        "WfLogPath" : "./log/magneto.log.wf",
+        "RotateWfLogPath" : "./log/magneto.log.wf.%Y%M%D",
+
+        "StLogPath" : "./log/magneto.log.st",
+        "RotateExLogPath" : "./log/magneto.log.st.%Y%M%D"
+    },
+
+    "ConsoleWriter" : {
+        "On" : true,
+        "Color" : true
+    }
+}

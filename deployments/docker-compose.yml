@@ -1,0 +1,44 @@
+version: '2'
+services:
+  magneto:
+    image: weiwen/magneto
+    depends_on:
+      - kafka1
+    ports:
+      - "9308:9308"
+    environment:
+      ENVIRONMENT: testoce
+      PRJ_BROKER_LIST: kafka1:9092
+      PRJ_ZOOKEEPER_LIST: zookeeper1:2181
+      PRJ_REDIS_LIST: redis1:6379
+      PRJ_START_DELAY: 30
+    volumes:
+      - ~/log/magneto:/go/magneto/log
+  kafka1:
+    image: wurstmeister/kafka
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper1
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka1:9092
+      KAFKA_BROKER_ID: 0
+#      KAFKA_CREATE_TOPICS: CHATROOM:1:1
+      KAFKA_ADVERTISED_HOST_NAME: kafka1
+      KAFKA_ADVERTISED_PORT: 9092
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper1:2181
+  zookeeper1:
+    image: zookeeper:latest
+    environment:
+      ZOO_MY_ID: 1
+      SERVERS: zookeeper1
+    ports:
+      - "2181:2181"
+      - "2888"
+      - "3888"
+    depends_on:
+      - redis1
+  redis1:
+    image: redis:latest
+    ports:
+      - "6379:6379"
