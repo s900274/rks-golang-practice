@@ -3,7 +3,7 @@ export CGO_ENABLED=0
 
 all: bld
 
-bld: rks-golang-practice
+bld: cleanlog rks-golang-practice
 
 rks-golang-practice:
 	go mod download
