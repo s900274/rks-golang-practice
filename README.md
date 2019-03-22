@@ -60,3 +60,9 @@ make, load, initial script
 * [Golang Project Layout](https://github.com/golang-standards/project-layout)
 
 * [Gin with Swagger](https://github.com/swaggo/gin-swagger)
+
+## TODO List
+1. Redis Client
+2. RabbitMQ Client (Producer, Consumer)
+3. Cassandra Client
+4. GRPC
